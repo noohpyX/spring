@@ -1,9 +1,11 @@
 Project Reactor Introduction
 
+This project is used to show how to work with Flux and Mono, implementations of the Publisher interface of Project Reactor.
+Also, we explore some of the most used operators when we work in a reactive way.
+
 LINKS
 
-Reactive Streams Specification
-https://github.com/reactive-streams/reactive-streams-jvm
+[Reactive Streams Specification]https://github.com/reactive-streams/reactive-streams-jvm
 
 Reactor Documentation
 http://projectreactor.io/docs/core/snapshot/reference/
