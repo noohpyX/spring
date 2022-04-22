@@ -48,7 +48,8 @@ public class ProductController {
     public Mono<ResponseEntity<Product>> getProduct(@PathVariable String id) {
         return repository.findById(id)
                 .map(ResponseEntity::ok)
-                // This operator will be executed when the performed action returns an empty object
+                // This operator will be executed when the performed action returns an empty object.
+                // Note: this operator works with objects and no need of Publishers
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
