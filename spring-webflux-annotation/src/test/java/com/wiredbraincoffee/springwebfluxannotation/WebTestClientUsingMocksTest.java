@@ -31,7 +31,7 @@ import static org.mockito.Mockito.when;
  * Using these annotations, only Spring's application context is initialized
  */
 @ExtendWith(SpringExtension.class)
-class JUnit5ControllerMockTest {
+class WebTestClientUsingMocksTest {
     private WebTestClient client;
 
     private List<Product> expectedList;

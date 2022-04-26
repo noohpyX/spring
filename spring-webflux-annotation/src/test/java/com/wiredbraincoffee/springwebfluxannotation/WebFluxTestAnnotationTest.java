@@ -1,5 +1,6 @@
 package com.wiredbraincoffee.springwebfluxannotation;
 
+
 import com.wiredbraincoffee.springwebfluxannotation.controller.ProductController;
 import com.wiredbraincoffee.springwebfluxannotation.model.Product;
 import com.wiredbraincoffee.springwebfluxannotation.model.ProductEvent;
@@ -7,48 +8,61 @@ import com.wiredbraincoffee.springwebfluxannotation.repository.ProductRepository
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.FluxExchangeResult;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.when;
 
 /**
- * Class that shows how to test a single controller using an instance of WebTestClient bound to a controller
+ * Class that shows how to test WebFlux controllers.
+ * "@WebFluxTest" annotation configured beans provided:
+ *      - @Controller
+ *      - @JsonComponent
+ *      - Converters
+ *      - WebFluxConfigurer beans
+ *
+ * "@WebFluxTest" annotation configured beans not provided:
+ *      - @Component
+ *      - @Service
+ *      - @Repository
+ *
+ * Using @WebFluxTest will provide a WebTestClient instance, so we can use @Autowired with the WebTestClient object.
+ * The WebTestClient instance provided is one by default, so we need to specify the complete PATH in each test
  */
-@SpringBootTest
-class JUnit5ControllerTest {
+@WebFluxTest(ProductController.class)
+class WebFluxTestAnnotationTest {
+
+    @Autowired
     private WebTestClient client;
 
     private List<Product> expectedList;
 
-    @Autowired
+    // Mocked because @WebFluxTest does not provide a configuration for it
+    @MockBean
     private ProductRepository repository;
+
+    @MockBean
+    private CommandLineRunner commandLineRunner;
 
     /**
      * This method will be executed every time a test is run.
-     * Here we are binding the WebTestClient instance to a controller and also getting all the data in the database
-     * in a synchronous way
+     * Notice we don't need to create a WebTestClient, since @WebFluxTest gives us one by default
      */
     @BeforeEach
     void beforeEach() {
-        this.client =
-                WebTestClient
-                        .bindToController(new ProductController(repository))
-                        .configureClient()
-                        .baseUrl("/products")
-                        .build();
-
-        /*
-            Calling "block()" method will convert an asynchronous call into a synchronous one.
-            We need to use it, se we can have data to test
-         */
-        this.expectedList =
-                repository.findAll().collectList().block();
+        this.expectedList = List.of(
+                new Product("1", "Big Latte", 2.99)
+        );
     }
 
     /**
@@ -59,8 +73,12 @@ class JUnit5ControllerTest {
      */
     @Test
     void testGetAllProducts() {
-        client.get()
-                .uri("/")
+        // Since we are using Mockito, we need to specify what the mock object methods should return
+        when(repository.findAll()).thenReturn(Flux.fromIterable(this.expectedList));
+
+        client
+                .get()
+                .uri("/products")
                 .exchange()
                 .expectStatus()
                 .isOk()
@@ -76,8 +94,14 @@ class JUnit5ControllerTest {
      */
     @Test
     void testProductInvalidIdNotFound() {
-        client.get()
-                .uri("/aaa")
+        String id = "aaa";
+
+        // Since we are using Mockito, we need to specify what the mock object methods should return
+        when(repository.findById(id)).thenReturn(Mono.empty());
+
+        client
+                .get()
+                .uri("/products/{id}", id)
                 .exchange()
                 .expectStatus()
                 .isNotFound();
@@ -91,9 +115,14 @@ class JUnit5ControllerTest {
      */
     @Test
     void testProductIdFound() {
-        Product expectedProduct = expectedList.get(0);
-        client.get()
-                .uri("/{id}", expectedProduct.getId())
+        Product expectedProduct = this.expectedList.get(0);
+
+        // Since we are using Mockito, we need to specify what the mock object methods should return
+        when(repository.findById(expectedProduct.getId())).thenReturn(Mono.just(expectedProduct));
+
+        client
+                .get()
+                .uri("/products/{id}", expectedProduct.getId())
                 .exchange()
                 .expectStatus()
                 .isOk()
@@ -113,7 +142,7 @@ class JUnit5ControllerTest {
                 new ProductEvent(0L, "Product Event");
 
         FluxExchangeResult<ProductEvent> result =
-                client.get().uri("/events")
+                client.get().uri("/products/events")
                         .accept(MediaType.TEXT_EVENT_STREAM)
                         .exchange()
                         .expectStatus().isOk()

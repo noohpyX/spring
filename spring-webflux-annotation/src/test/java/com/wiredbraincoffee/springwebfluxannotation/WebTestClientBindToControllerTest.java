@@ -1,5 +1,6 @@
 package com.wiredbraincoffee.springwebfluxannotation;
 
+import com.wiredbraincoffee.springwebfluxannotation.controller.ProductController;
 import com.wiredbraincoffee.springwebfluxannotation.model.Product;
 import com.wiredbraincoffee.springwebfluxannotation.model.ProductEvent;
 import com.wiredbraincoffee.springwebfluxannotation.repository.ProductRepository;
@@ -7,23 +8,20 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.ApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.FluxExchangeResult;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.test.StepVerifier;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 /**
- * Class that shows how to test an API starting a server.
- * To achieve this we need to use @SpringBootTest annotation and bind the WebTestClient instance to an application
- * context.
+ * Class that shows how to test a single controller using an instance of WebTestClient bound to a controller
  */
 @SpringBootTest
-class JUnit5ApplicationContextTest {
+class WebTestClientBindToControllerTest {
     private WebTestClient client;
 
     private List<Product> expectedList;
@@ -31,19 +29,16 @@ class JUnit5ApplicationContextTest {
     @Autowired
     private ProductRepository repository;
 
-    @Autowired
-    private ApplicationContext context;
-
     /**
      * This method will be executed every time a test is run.
-     * Here we are binding the WebTestClient instance to an application context and also getting all the data
-     * in the database in a synchronous way
+     * Here we are binding the WebTestClient instance to a controller and also getting all the data in the database
+     * in a synchronous way
      */
     @BeforeEach
     void beforeEach() {
         this.client =
                 WebTestClient
-                        .bindToApplicationContext(context)
+                        .bindToController(new ProductController(repository))
                         .configureClient()
                         .baseUrl("/products")
                         .build();
@@ -64,8 +59,7 @@ class JUnit5ApplicationContextTest {
      */
     @Test
     void testGetAllProducts() {
-        client
-                .get()
+        client.get()
                 .uri("/")
                 .exchange()
                 .expectStatus()
@@ -82,8 +76,7 @@ class JUnit5ApplicationContextTest {
      */
     @Test
     void testProductInvalidIdNotFound() {
-        client
-                .get()
+        client.get()
                 .uri("/aaa")
                 .exchange()
                 .expectStatus()
@@ -99,8 +92,7 @@ class JUnit5ApplicationContextTest {
     @Test
     void testProductIdFound() {
         Product expectedProduct = expectedList.get(0);
-        client
-                .get()
+        client.get()
                 .uri("/{id}", expectedProduct.getId())
                 .exchange()
                 .expectStatus()

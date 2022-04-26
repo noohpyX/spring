@@ -1,69 +1,59 @@
 package com.wiredbraincoffee.springwebfluxannotation;
 
-
-import com.wiredbraincoffee.springwebfluxannotation.controller.ProductController;
 import com.wiredbraincoffee.springwebfluxannotation.model.Product;
 import com.wiredbraincoffee.springwebfluxannotation.model.ProductEvent;
 import com.wiredbraincoffee.springwebfluxannotation.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.FluxExchangeResult;
 import org.springframework.test.web.reactive.server.WebTestClient;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.util.Arrays;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.when;
-
 /**
- * Class that shows how to test WebFlux controllers.
- * "@WebFluxTest" annotation configured beans provided:
- *      - @Controller
- *      - @JsonComponent
- *      - Converters
- *      - WebFluxConfigurer beans
- *
- * "@WebFluxTest" annotation configured beans not provided:
- *      - @Component
- *      - @Service
- *      - @Repository
- *
- * Using @WebFluxTest will provide a WebTestClient instance, so we can use @Autowired with the WebTestClient object.
- * The WebTestClient instance provided is one by default, so we need to specify the complete PATH in each test
+ * Class that shows how to test an API starting a server.
+ * To achieve this we need to use @SpringBootTest annotation and bind the WebTestClient instance to an application
+ * context.
  */
-@WebFluxTest(ProductController.class)
-class JUnit5WebFluxTestAnnotationTest {
-
-    @Autowired
+@SpringBootTest
+class WebTestClientBindToApplicationContextTest {
     private WebTestClient client;
 
     private List<Product> expectedList;
 
-    // Mocked because @WebFluxTest does not provide a configuration for it
-    @MockBean
+    @Autowired
     private ProductRepository repository;
 
-    @MockBean
-    private CommandLineRunner commandLineRunner;
+    @Autowired
+    private ApplicationContext context;
 
     /**
      * This method will be executed every time a test is run.
-     * Notice we don't need to create a WebTestClient, since @WebFluxTest gives us one by default
+     * Here we are binding the WebTestClient instance to an application context and also getting all the data
+     * in the database in a synchronous way
      */
     @BeforeEach
     void beforeEach() {
-        this.expectedList = List.of(
-                new Product("1", "Big Latte", 2.99)
-        );
+        this.client =
+                WebTestClient
+                        .bindToApplicationContext(context)
+                        .configureClient()
+                        .baseUrl("/products")
+                        .build();
+
+        /*
+            Calling "block()" method will convert an asynchronous call into a synchronous one.
+            We need to use it, se we can have data to test
+         */
+        this.expectedList =
+                repository.findAll().collectList().block();
     }
 
     /**
@@ -74,12 +64,9 @@ class JUnit5WebFluxTestAnnotationTest {
      */
     @Test
     void testGetAllProducts() {
-        // Since we are using Mockito, we need to specify what the mock object methods should return
-        when(repository.findAll()).thenReturn(Flux.fromIterable(this.expectedList));
-
         client
                 .get()
-                .uri("/products")
+                .uri("/")
                 .exchange()
                 .expectStatus()
                 .isOk()
@@ -95,14 +82,9 @@ class JUnit5WebFluxTestAnnotationTest {
      */
     @Test
     void testProductInvalidIdNotFound() {
-        String id = "aaa";
-
-        // Since we are using Mockito, we need to specify what the mock object methods should return
-        when(repository.findById(id)).thenReturn(Mono.empty());
-
         client
                 .get()
-                .uri("/products/{id}", id)
+                .uri("/aaa")
                 .exchange()
                 .expectStatus()
                 .isNotFound();
@@ -116,14 +98,10 @@ class JUnit5WebFluxTestAnnotationTest {
      */
     @Test
     void testProductIdFound() {
-        Product expectedProduct = this.expectedList.get(0);
-
-        // Since we are using Mockito, we need to specify what the mock object methods should return
-        when(repository.findById(expectedProduct.getId())).thenReturn(Mono.just(expectedProduct));
-
+        Product expectedProduct = expectedList.get(0);
         client
                 .get()
-                .uri("/products/{id}", expectedProduct.getId())
+                .uri("/{id}", expectedProduct.getId())
                 .exchange()
                 .expectStatus()
                 .isOk()
@@ -143,7 +121,7 @@ class JUnit5WebFluxTestAnnotationTest {
                 new ProductEvent(0L, "Product Event");
 
         FluxExchangeResult<ProductEvent> result =
-                client.get().uri("/products/events")
+                client.get().uri("/events")
                         .accept(MediaType.TEXT_EVENT_STREAM)
                         .exchange()
                         .expectStatus().isOk()
